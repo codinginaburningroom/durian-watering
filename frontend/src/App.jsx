@@ -284,8 +284,11 @@ function ReportsPage({ reports }) {
 
   const fetchCustomReport = async () => {
     if (!customRange.start || !customRange.end) return Swal.fire('ข้อมูลไม่ครบ', 'กรุณาเลือกวันที่เริ่มต้นและสิ้นสุด', 'warning');
-    const start = new Date(customRange.start).toISOString();
-    const end = new Date(customRange.end + "T23:59:59Z").toISOString();
+    
+    // Use local time to ensure full day coverage (00:00:00 - 23:59:59 local)
+    const start = new Date(customRange.start + "T00:00:00").toISOString();
+    const end = new Date(customRange.end + "T23:59:59").toISOString();
+    
     try {
       const res = await axios.get(`/api/reports/custom?start_at=${start}&end_at=${end}`);
       setCustomResult(res.data);
