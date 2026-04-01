@@ -36,7 +36,7 @@ def read_zones():
 # Watering Records
 @app.post("/api/watering/", response_model=schemas.WateringRecord)
 def create_record(record: schemas.WateringRecordCreate):
-    payload = record.model_dump()
+    payload = record.model_dump(exclude_none=True)
     # Ensure timestamp is string for ISO format
     if isinstance(payload.get('timestamp'), datetime):
         payload['timestamp'] = payload['timestamp'].isoformat()
@@ -111,6 +111,79 @@ def report_yearly():
         grouped[year_str]["count"] += 1
         
     results = [{"year": k, **v} for k, v in sorted(grouped.items())]
+    return results
+
+# ====== User Auth & Admin ======
+@app.post("/api/auth/register")
+def register(user: schemas.UserCreate):
+    existing = supabase.table('app_users').select('id').eq('username', user.username).execute()
+    if existing.data:
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+    data = supabase.table('app_users').insert(user.model_dump()).execute()
+    if not data.data:
+        raise HTTPException(status_code=400, detail="Failed to register")
+    return {"message": "Register success"}
+
+@app.post("/api/auth/login")
+def login(user: schemas.UserLogin):
+    data = supabase.table('app_users').select('*').eq('username', user.username).eq('password', user.password).execute()
+    if not data.data:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    u = data.data[0]
+    return {"id": u["id"], "username": u["username"], "role": u["role"]}
+
+@app.get("/api/users", response_model=List[schemas.User])
+def get_users():
+    data = supabase.table('app_users').select('*').order('created_at', desc=True).execute()
+    return data.data
+
+@app.post("/api/users")
+def create_admin_user(user: schemas.UserCreate):
+    existing = supabase.table('app_users').select('id').eq('username', user.username).execute()
+    if existing.data:
+        raise HTTPException(status_code=400, detail="Username already exists")
+        
+    data = supabase.table('app_users').insert(user.model_dump()).execute()
+    if not data.data:
+        raise HTTPException(status_code=400, detail="Failed to create user")
+    return data.data[0]
+
+@app.put("/api/users/{user_id}")
+def update_user(user_id: int, user_update: schemas.UserUpdate):
+    payload = user_update.model_dump(exclude_unset=True)
+    if not payload:
+        return {"ok": True}
+        
+    if 'username' in payload:
+        existing = supabase.table('app_users').select('id').eq('username', payload['username']).neq('id', user_id).execute()
+        if existing.data:
+            raise HTTPException(status_code=400, detail="Username already exists")
+            
+    data = supabase.table('app_users').update(payload).eq('id', user_id).execute()
+    if not data.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    return data.data[0]
+
+@app.delete("/api/users/{user_id}")
+def delete_user(user_id: int):
+    supabase.table('app_users').delete().eq('id', user_id).execute()
+    return {"ok": True}
+
+@app.get("/api/reports/users")
+def report_user_growth():
+    data = supabase.table('app_users').select('created_at').execute()
+    grouped = defaultdict(int)
+    for u in data.data:
+        dt = datetime.fromisoformat(u['created_at'].replace('Z', '+00:00'))
+        month_str = f"{dt.year}-{dt.month:02d}"
+        grouped[month_str] += 1
+        
+    results = []
+    total = 0
+    for k, v in sorted(grouped.items()):
+        total += v
+        results.append({"month": k, "new_users": v, "total_users": total})
     return results
 
 # Mount static files (React build)

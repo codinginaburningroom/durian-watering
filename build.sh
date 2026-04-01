@@ -2,11 +2,11 @@
 # exit on error
 set -o errexit
 
-echo "Building frontend..."
+echo ">>> Building Frontend..."
 cd frontend
 npm install
 npm run build
 
-echo "Installing backend dependencies..."
-cd ../backend
-pip install -r requirements.txt
+echo ">>> Installing Backend Dependencies..."
+cd ..
+pip install -r backend/requirements.txt
