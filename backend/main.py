@@ -98,6 +98,22 @@ def report_monthly():
     results = [{"month": k, **v} for k, v in sorted(grouped.items())]
     return results
 
+@app.get("/api/reports/daily")
+def report_daily():
+    data = supabase.table('watering_records').select('*').execute()
+    grouped = defaultdict(lambda: {"total_liters": 0.0, "total_duration": 0, "count": 0})
+    
+    for r in data.data:
+        dt = datetime.fromisoformat(r['timestamp'].replace('Z', '+00:00'))
+        day_str = dt.strftime('%Y-%m-%d')
+        grouped[day_str]["total_liters"] += r.get("liter_amount") or 0
+        grouped[day_str]["total_duration"] += r.get("duration_minutes") or 0
+        grouped[day_str]["count"] += 1
+        
+    results = [{"date": k, **v} for k, v in sorted(grouped.items())]
+    # Return last 30 days of activity
+    return results[-30:]
+
 @app.get("/api/reports/yearly")
 def report_yearly():
     data = supabase.table('watering_records').select('*').execute()
@@ -112,6 +128,14 @@ def report_yearly():
         
     results = [{"year": k, **v} for k, v in sorted(grouped.items())]
     return results
+
+@app.get("/api/reports/custom")
+def report_custom(start_at: str, end_at: str):
+    data = supabase.table('watering_records').select('*').gte('timestamp', start_at).lte('timestamp', end_at).execute()
+    total_liters = sum(r.get("liter_amount") or 0 for r in data.data)
+    total_duration = sum(r.get("duration_minutes") or 0 for r in data.data)
+    count = len(data.data)
+    return {"total_liters": total_liters, "total_duration": total_duration, "count": count}
 
 # ====== User Auth & Admin ======
 @app.post("/api/auth/register")

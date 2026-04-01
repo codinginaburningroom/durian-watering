@@ -618,6 +618,45 @@ select:hover {
   }
 }
 
+.report-filter-container {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-top: 15px;
+}
+
+.report-filter-container .filter-group {
+  flex: 1;
+  min-width: 180px;
+}
+
+.report-filter-container .filter-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.report-filter-container button {
+  height: 46px;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .report-filter-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .report-filter-container .filter-group {
+    width: 100%;
+  }
+  .report-filter-container button {
+    width: 100%;
+  }
+}
+
 .empty-val { color: rgba(0,0,0,0.4); margin: 0; }
 
 /* Animations */

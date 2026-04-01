@@ -279,6 +279,21 @@ function RecordsPage({ records, fetchRecords, fetchReports }) {
 
 // Reports Page Component
 function ReportsPage({ reports }) {
+  const [customRange, setCustomRange] = useState({ start: '', end: '' });
+  const [customResult, setCustomResult] = useState(null);
+
+  const fetchCustomReport = async () => {
+    if (!customRange.start || !customRange.end) return Swal.fire('ข้อมูลไม่ครบ', 'กรุณาเลือกวันที่เริ่มต้นและสิ้นสุด', 'warning');
+    const start = new Date(customRange.start).toISOString();
+    const end = new Date(customRange.end + "T23:59:59Z").toISOString();
+    try {
+      const res = await axios.get(`/api/reports/custom?start_at=${start}&end_at=${end}`);
+      setCustomResult(res.data);
+    } catch(err) {
+      console.error(err);
+      Swal.fire('ข้อผิดพลาด', 'ไม่สามารถดึงข้อมูลสรุปผลในช่วงเวลาที่เลือกได้', 'error');
+    }
+  };
   return (
     <div className="page-content fade-in">
       <div className="page-header">
@@ -286,6 +301,43 @@ function ReportsPage({ reports }) {
           <h1>รายงานสรุปการให้น้ำ</h1>
           <p className="subtitle">ติดตามข้อมูลการใช้น้ำของสวนทุเรียน</p>
         </div>
+      </div>
+
+      {/* Custom Picker Section */}
+      <div className="card" style={{marginBottom: '24px', borderLeft: '6px solid var(--primary)'}}>
+        <h3 style={{marginBottom: '10px'}}><MapPin size={20} style={{verticalAlign: 'bottom', color: 'var(--primary)'}} /> สรุปผลตามช่วงวันที่ระบุ</h3>
+        <div className="report-filter-container">
+           <div className="filter-group">
+              <label>ตั้งแต่วันที่:</label>
+              <input type="date" value={customRange.start} onChange={e => setCustomRange({...customRange, start: e.target.value})} />
+           </div>
+           <div className="filter-group">
+              <label>จนถึงวันที่:</label>
+              <input type="date" value={customRange.end} onChange={e => setCustomRange({...customRange, end: e.target.value})} />
+           </div>
+           <button className="btn-primary" onClick={fetchCustomReport}>
+              ประมวลผลช่วงวันที่เลือก
+           </button>
+        </div>
+
+        {customResult && (
+           <div className="fade-in" style={{marginTop: '25px', padding: '20px', background: 'var(--secondary)', borderRadius: 'var(--radius)', border: '1px dashed var(--primary)'}}>
+              <div style={{display: 'flex', justifyContent: 'space-around', textAlign: 'center', flexWrap: 'wrap', gap: '20px'}}>
+                 <div style={{flex: 1, minWidth: '100px'}}>
+                   <div style={{fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px'}}>จำนวนครั้ง</div>
+                   <div style={{fontSize: '24px', fontWeight: '800', color: 'var(--primary-dark)'}}>{customResult.count} <span style={{fontSize: '14px'}}>ครั้ง</span></div>
+                 </div>
+                 <div style={{flex: 1, minWidth: '150px'}}>
+                   <div style={{fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px'}}>รวมน้ำทั้งหมด</div>
+                   <div style={{fontSize: '24px', fontWeight: '800', color: 'var(--primary-dark)'}}>{customResult.total_liters.toLocaleString()} <span style={{fontSize: '14px'}}>ลิตร</span></div>
+                 </div>
+                 <div style={{flex: 1, minWidth: '120px'}}>
+                   <div style={{fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px'}}>เวลาที่ใช้</div>
+                   <div style={{fontSize: '24px', fontWeight: '800', color: 'var(--primary-dark)'}}>{customResult.total_duration} <span style={{fontSize: '14px'}}>นาที</span></div>
+                 </div>
+              </div>
+           </div>
+        )}
       </div>
 
       <div className="report-grid">
@@ -324,8 +376,42 @@ function ReportsPage({ reports }) {
       </div>
 
       <div className="card chart-card">
+        <h2>ปริมาณน้ำรายวัน (14 วันล่าสุด)</h2>
+        <div style={{ width: '100%', height: 300, marginTop: '20px' }}>
+          <ResponsiveContainer>
+            <BarChart data={reports.daily}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
+              <XAxis 
+                dataKey="date" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{fill: '#666', fontSize: 11}} 
+                dy={10} 
+                tickFormatter={(str) => {
+                  try {
+                    const d = new Date(str);
+                    return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+                  } catch(e) { return str; }
+                }}
+              />
+              <YAxis axisLine={false} tickLine={false} tick={{fill: '#666', fontSize: 13}} dx={-10} />
+              <Tooltip 
+                cursor={{fill: '#f1f8e9'}} 
+                contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 8px 16px rgba(0,0,0,0.08)'}}
+                labelFormatter={(str) => {
+                   const d = new Date(str);
+                   return d.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                }}
+              />
+              <Bar dataKey="total_liters" fill="#4caf50" name="ปริมาณน้ำ (ลิตร)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="card chart-card" style={{marginTop: '24px'}}>
         <h2>ปริมาณน้ำรายเดือน (ลิตร)</h2>
-        <div style={{ width: '100%', height: 350, marginTop: '20px' }}>
+        <div style={{ width: '100%', height: 300, marginTop: '20px' }}>
           <ResponsiveContainer>
             <BarChart data={reports.monthly}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
@@ -346,6 +432,35 @@ function ReportsPage({ reports }) {
               </defs>
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="card chart-card" style={{marginTop: '24px'}}>
+        <h2>ตารางสรุปรายวัน (แจกแจงตามวันที่)</h2>
+        <div className="table-responsive" style={{maxHeight: '400px', overflowY: 'auto', marginTop: '15px'}}>
+          <table>
+            <thead style={{position: 'sticky', top: 0, zIndex: 1, backgroundColor: '#f8fafc'}}>
+              <tr>
+                <th>วันที่ (รดน้ำ)</th>
+                <th className="text-center">จำนวนครั้ง</th>
+                <th className="text-center">รวมปริมาณน้ำ (ลิตร)</th>
+              </tr>
+            </thead>
+            <tbody>
+               {[...reports.daily].reverse().map(d => (
+                 <tr key={d.date}>
+                   <td>{new Date(d.date).toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</td>
+                   <td className="text-center"><span className="badge" style={{background: '#e3f2fd', color: '#1565c0'}}>{d.count} ครั้ง</span></td>
+                   <td className="text-center"><strong style={{color: '#2e7d32'}}>{d.total_liters.toLocaleString()} L</strong></td>
+                 </tr>
+               ))}
+               {reports.daily.length === 0 && (
+                 <tr>
+                    <td colSpan="3" style={{textAlign: 'center', padding: '10px', color: '#999'}}>ยังไม่มีข้อมูลบันทึกรายวัน</td>
+                 </tr>
+               )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -950,7 +1065,7 @@ function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const [records, setRecords] = useState([]);
-  const [reports, setReports] = useState({ weekly: [], monthly: [], yearly: [] });
+  const [reports, setReports] = useState({ weekly: [], monthly: [], yearly: [], daily: [] });
 
   useEffect(() => {
     fetchRecords();
@@ -968,15 +1083,17 @@ function App() {
 
   const fetchReports = async () => {
     try {
-      const [weekly, monthly, yearly] = await Promise.all([
+      const [weekly, monthly, yearly, daily] = await Promise.all([
         axios.get('/api/reports/weekly'),
         axios.get('/api/reports/monthly'),
-        axios.get('/api/reports/yearly')
+        axios.get('/api/reports/yearly'),
+        axios.get('/api/reports/daily')
       ]);
       setReports({
         weekly: weekly.data,
         monthly: monthly.data,
-        yearly: yearly.data
+        yearly: yearly.data,
+        daily: daily.data
       });
     } catch (err) {
       console.error(err);
